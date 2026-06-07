@@ -37,6 +37,8 @@ export GEMINI_API_KEY=your-key-here
 cd backend && mvn spring-boot:run
 ```
 
+Then open `http://localhost:8080/` for the web UI.
+
 ## API
 
 ### Generate article
@@ -59,4 +61,3 @@ Response:
   "html": "..."
 }
 ```
-
