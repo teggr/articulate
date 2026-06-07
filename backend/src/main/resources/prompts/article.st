@@ -6,7 +6,7 @@ Notes:
 Write the article according to these requirements:
 - Begin with a catchy, SEO-friendly title formatted as a Markdown H1 heading
 - Follow with an engaging introduction paragraph that hooks the reader
-- Organise the body using H2 headings, one per major insight or theme
+- Organize the body using H2 headings, one per major insight or theme
 - Use bullet points within sections where they aid clarity
 - Conclude with a short "Key Takeaways" section summarising the most important points
 - Write in a clear, accessible style suitable for a general audience
