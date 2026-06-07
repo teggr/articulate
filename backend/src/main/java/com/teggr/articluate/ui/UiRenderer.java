@@ -10,7 +10,7 @@ import static j2html.TagCreator.h2;
 import static j2html.TagCreator.h3;
 import static j2html.TagCreator.p;
 import static j2html.TagCreator.pre;
-import static j2html.TagCreator.unsafeHtml;
+import static j2html.TagCreator.rawHtml;
 
 public final class UiRenderer {
 
@@ -36,7 +36,7 @@ public final class UiRenderer {
         return article().with(
                 h2(article.title()),
                 h3("Rendered output"),
-                div(unsafeHtml(article.html())),
+                div(rawHtml(article.html())),
                 h3("Markdown"),
                 pre(article.markdown())
         );

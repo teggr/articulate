@@ -1,10 +1,13 @@
 package com.teggr.articluate.controller;
 
+import com.teggr.articluate.exception.TranscriptNotFoundException;
 import com.teggr.articluate.model.ArticleRequest;
 import com.teggr.articluate.model.ArticleResponse;
 import com.teggr.articluate.service.ArticleService;
 import com.teggr.articluate.ui.UiRenderer;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -16,6 +19,10 @@ import org.springframework.web.bind.annotation.ResponseBody;
 @Controller
 @RequiredArgsConstructor
 public class UiController {
+
+    private static final Logger log = LoggerFactory.getLogger(UiController.class);
+    private static final String EMPTY_URL_ERROR = "Please provide a YouTube URL.";
+    private static final String GENERIC_ERROR = "Unable to generate article right now. Please try again.";
 
     private final ArticleService articleService;
 
@@ -40,15 +47,11 @@ public class UiController {
     public String generatePartial(@RequestParam(name = "youtubeUrl", required = false) String youtubeUrl) {
         String normalizedUrl = normalize(youtubeUrl);
         if (normalizedUrl.isBlank()) {
-            return UiRenderer.renderResultContent(null, "Please provide a YouTube URL.");
+            return UiRenderer.renderResultContent(null, EMPTY_URL_ERROR);
         }
 
-        try {
-            ArticleResponse article = articleService.generate(new ArticleRequest(normalizedUrl));
-            return UiRenderer.renderResultContent(article, null);
-        } catch (RuntimeException ex) {
-            return UiRenderer.renderResultContent(null, ex.getMessage());
-        }
+        GenerationResult result = generateArticle(normalizedUrl);
+        return UiRenderer.renderResultContent(result.article(), result.error());
     }
 
     private void applyGeneration(Model model, String normalizedUrl) {
@@ -56,18 +59,30 @@ public class UiController {
         model.addAttribute("error", null);
 
         if (normalizedUrl.isBlank()) {
-            model.addAttribute("error", "Please provide a YouTube URL.");
+            model.addAttribute("error", EMPTY_URL_ERROR);
             return;
         }
 
+        GenerationResult result = generateArticle(normalizedUrl);
+        model.addAttribute("article", result.article());
+        model.addAttribute("error", result.error());
+    }
+
+    private GenerationResult generateArticle(String normalizedUrl) {
         try {
-            model.addAttribute("article", articleService.generate(new ArticleRequest(normalizedUrl)));
+            return new GenerationResult(articleService.generate(new ArticleRequest(normalizedUrl)), null);
+        } catch (IllegalArgumentException | TranscriptNotFoundException ex) {
+            return new GenerationResult(null, ex.getMessage());
         } catch (RuntimeException ex) {
-            model.addAttribute("error", ex.getMessage());
+            log.error("Unexpected UI generation error", ex);
+            return new GenerationResult(null, GENERIC_ERROR);
         }
     }
 
     private String normalize(String youtubeUrl) {
         return youtubeUrl == null ? "" : youtubeUrl.trim();
+    }
+
+    private record GenerationResult(ArticleResponse article, String error) {
     }
 }
