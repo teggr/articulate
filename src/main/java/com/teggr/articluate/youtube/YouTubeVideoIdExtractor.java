@@ -2,10 +2,12 @@ package com.teggr.articluate.youtube;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.springframework.stereotype.Component;
 
 /**
  * Extracts the 11-char YouTube video ID from supported URL formats or a bare ID.
  */
+@Component
 public final class YouTubeVideoIdExtractor {
 
     /**

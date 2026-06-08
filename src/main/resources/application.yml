@@ -9,15 +9,18 @@ spring:
       # Gemini's OpenAI-compatible endpoint
       base-url: https://generativelanguage.googleapis.com/v1beta/openai/
       chat:
-        options:
-          model: gemini-2.5-flash
-          temperature: 0.7
+        model: gemini-2.5-flash
+        temperature: 0.7
       # Embeddings are not used; point at the same base URL to satisfy auto-configuration
       embedding:
         base-url: https://generativelanguage.googleapis.com/v1beta/openai/
 
 server:
   port: 8080
+
+articluate:
+  transcript-cache:
+    dir: .data
 
 logging:
   level:
