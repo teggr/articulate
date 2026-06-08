@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.5.0</version>
+        <version>4.0.6</version>
         <relativePath/>
     </parent>
 
@@ -18,8 +18,8 @@
     <description>Convert YouTube videos into readable blog articles</description>
 
     <properties>
-        <java.version>17</java.version>
-        <spring-ai.version>1.0.0</spring-ai.version>
+        <java.version>25</java.version>
+        <spring-ai.version>2.0.0-RC1</spring-ai.version>
         <j2html-extensions.version>0.0.3</j2html-extensions.version>
     </properties>
 
@@ -29,6 +29,14 @@
                 <groupId>org.springframework.ai</groupId>
                 <artifactId>spring-ai-bom</artifactId>
                 <version>${spring-ai.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- Explicitly pin JUnit 6 before j2html-extensions BOM which downgrades to JUnit 5 -->
+            <dependency>
+                <groupId>org.junit</groupId>
+                <artifactId>junit-bom</artifactId>
+                <version>${junit-jupiter.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -87,10 +95,27 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-webmvc-test</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
