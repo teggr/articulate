@@ -40,6 +40,7 @@ public class YoutubeTranscriptProvider implements TranscriptProvider {
 
     private static final String YOUTUBE_WATCH_URL = "https://www.youtube.com/watch?v=";
     private static final String YOUTUBE_PLAYER_API_URL = "https://www.youtube.com/youtubei/v1/player?prettyPrint=false&key=";
+    private static final String YOUTUBE_TIMEDTEXT_URL = "https://video.google.com/timedtext";
     private static final String ANDROID_CLIENT_VERSION = "20.22.34";
     private static final String ANDROID_USER_AGENT = "com.google.android.youtube/20.22.34 (Linux; U; Android 11) gzip";
     private static final String ANDROID_CLIENT_NAME_HEADER = "3";
@@ -85,10 +86,20 @@ public class YoutubeTranscriptProvider implements TranscriptProvider {
         }
 
         if (xml == null || xml.isBlank()) {
-            JsonNode androidPlayerResponse = fetchAndroidPlayerResponse(videoId, pageHtml);
-            String androidCaptionUrl = extractCaptionUrl(androidPlayerResponse);
-            xml = fetchTranscriptXml(androidCaptionUrl);
+            try {
+                JsonNode androidPlayerResponse = fetchAndroidPlayerResponse(videoId, pageHtml);
+                String androidCaptionUrl = extractCaptionUrl(androidPlayerResponse);
+                xml = fetchTranscriptXml(androidCaptionUrl);
+            } catch (RuntimeException androidCaptionError) {
+                log.debug("Android caption fetch failed for {}. Falling back to timedtext track list", videoId, androidCaptionError);
+            }
         }
+
+        if (xml == null || xml.isBlank()) {
+            String timedtextTrackUrl = extractTimedTextTrackUrl(videoId);
+            xml = fetchTranscriptXml(timedtextTrackUrl);
+        }
+
         if (xml == null || xml.isBlank()) {
             throw new RuntimeException("Failed to fetch transcript XML for video ID: " + videoId);
         }
@@ -294,6 +305,92 @@ public class YoutubeTranscriptProvider implements TranscriptProvider {
             return matcher.group(1);
         }
         throw new RuntimeException("INNERTUBE_API_KEY not found in YouTube watch page");
+    }
+
+    private String extractTimedTextTrackUrl(String videoId) {
+        String listUrl = UriComponentsBuilder.fromUriString(YOUTUBE_TIMEDTEXT_URL)
+                .queryParam("type", "list")
+                .queryParam("v", videoId)
+                .build(true)
+                .toUriString();
+
+        String listXml = restClient.get()
+                .uri(listUrl)
+                .retrieve()
+                .body(String.class);
+
+        if (listXml == null || listXml.isBlank()) {
+            throw new TranscriptNotFoundException("Timedtext track list is empty");
+        }
+
+        try {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            Document doc = builder.parse(new InputSource(new StringReader(listXml)));
+            NodeList trackNodes = doc.getElementsByTagName("track");
+
+            if (trackNodes.getLength() == 0) {
+                throw new TranscriptNotFoundException(
+                        "No captions available for this video — the owner may have disabled them");
+            }
+
+            String langCode = null;
+            String trackName = null;
+
+            // Prefer English track first.
+            for (int i = 0; i < trackNodes.getLength(); i++) {
+                var node = trackNodes.item(i);
+                var attributes = node.getAttributes();
+                if (attributes == null) {
+                    continue;
+                }
+                var lang = attributes.getNamedItem("lang_code");
+                if (lang != null && lang.getNodeValue() != null && lang.getNodeValue().startsWith("en")) {
+                    langCode = lang.getNodeValue();
+                    var nameNode = attributes.getNamedItem("name");
+                    trackName = nameNode == null ? null : nameNode.getNodeValue();
+                    break;
+                }
+            }
+
+            // If no English track exists, take the first available language.
+            if (langCode == null) {
+                var firstAttributes = trackNodes.item(0).getAttributes();
+                if (firstAttributes != null) {
+                    var firstLang = firstAttributes.getNamedItem("lang_code");
+                    if (firstLang != null) {
+                        langCode = firstLang.getNodeValue();
+                    }
+                    var firstName = firstAttributes.getNamedItem("name");
+                    trackName = firstName == null ? null : firstName.getNodeValue();
+                }
+            }
+
+            if (langCode == null || langCode.isBlank()) {
+                throw new TranscriptNotFoundException("No usable timedtext track found for this video");
+            }
+
+                UriComponentsBuilder transcriptUrlBuilder = UriComponentsBuilder.fromUriString(YOUTUBE_TIMEDTEXT_URL)
+                    .queryParam("v", videoId)
+                    .queryParam("lang", langCode)
+                    .queryParam("fmt", "xml3");
+
+            if (trackName != null && !trackName.isBlank()) {
+                transcriptUrlBuilder.queryParam("name", trackName);
+            }
+
+            return transcriptUrlBuilder
+                    .build(true)
+                    .toUriString();
+        } catch (TranscriptNotFoundException ex) {
+            throw ex;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse timedtext track list", e);
+        }
     }
 
     private List<String> buildTranscriptUrlCandidates(String originalUrl) {

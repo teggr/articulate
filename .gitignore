@@ -38,3 +38,4 @@ target/
 .env
 *.env.local
 .data/
+.deploy4j/secrets
