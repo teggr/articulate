@@ -4,8 +4,14 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import com.teggr.articluate.exception.TranscriptNotFoundException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
+import org.springframework.web.util.UriComponentsBuilder;
 import org.w3c.dom.Document;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
@@ -13,6 +19,10 @@ import org.xml.sax.InputSource;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.StringReader;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -29,29 +39,31 @@ import java.util.regex.Pattern;
 public class YoutubeTranscriptProvider implements TranscriptProvider {
 
     private static final String YOUTUBE_WATCH_URL = "https://www.youtube.com/watch?v=";
-
-    /**
-     * Matches the 11-character video ID in the common YouTube URL formats:
-     * watch?v=, youtu.be/, shorts/, embed/, v/
-     */
-    private static final Pattern VIDEO_ID_PATTERN = Pattern.compile(
-            "(?:youtube\\.com/(?:watch\\?(?:.*&)?v=|shorts/|embed/|v/)|youtu\\.be/)([a-zA-Z0-9_-]{11})"
-    );
-
-    private static final Pattern BARE_ID_PATTERN = Pattern.compile("^[a-zA-Z0-9_-]{11}$");
+    private static final String YOUTUBE_PLAYER_API_URL = "https://www.youtube.com/youtubei/v1/player?prettyPrint=false&key=";
+    private static final String ANDROID_CLIENT_VERSION = "20.22.34";
+    private static final String ANDROID_USER_AGENT = "com.google.android.youtube/20.22.34 (Linux; U; Android 11) gzip";
+    private static final String ANDROID_CLIENT_NAME_HEADER = "3";
+    private static final Pattern INNERTUBE_API_KEY_PATTERN = Pattern.compile("\"INNERTUBE_API_KEY\":\"([^\"]+)\"");
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
+    private final YouTubeVideoIdExtractor videoIdExtractor;
 
+    @Autowired
     public YoutubeTranscriptProvider(ObjectMapper objectMapper) {
+        this(objectMapper, new YouTubeVideoIdExtractor());
+    }
+
+    YoutubeTranscriptProvider(ObjectMapper objectMapper, YouTubeVideoIdExtractor videoIdExtractor) {
         this.objectMapper = objectMapper;
+        this.videoIdExtractor = videoIdExtractor;
         this.restClient = RestClient.builder()
                 .defaultHeader("Accept-Language", "en-US,en;q=0.9")
                 .defaultHeader("User-Agent",
                         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
                         "AppleWebKit/537.36 (KHTML, like Gecko) " +
                         "Chrome/124.0.0.0 Safari/537.36")
-                .build();
+            .build();
     }
 
     @Override
@@ -63,8 +75,24 @@ public class YoutubeTranscriptProvider implements TranscriptProvider {
         JsonNode playerResponse = extractPlayerResponse(pageHtml);
 
         String title = extractTitle(playerResponse);
-        String captionUrl = extractCaptionUrl(playerResponse);
-        String xml = fetchTranscriptXml(captionUrl);
+        String xml = null;
+
+        try {
+            String captionUrl = extractCaptionUrl(playerResponse);
+            xml = fetchTranscriptXml(captionUrl);
+        } catch (RuntimeException webCaptionError) {
+            log.debug("Web caption fetch failed for {}. Falling back to Android caption endpoint", videoId, webCaptionError);
+        }
+
+        if (xml == null || xml.isBlank()) {
+            JsonNode androidPlayerResponse = fetchAndroidPlayerResponse(videoId, pageHtml);
+            String androidCaptionUrl = extractCaptionUrl(androidPlayerResponse);
+            xml = fetchTranscriptXml(androidCaptionUrl);
+        }
+        if (xml == null || xml.isBlank()) {
+            throw new RuntimeException("Failed to fetch transcript XML for video ID: " + videoId);
+        }
+
         String transcript = parseTranscriptXml(xml);
 
         log.debug("Fetched {} characters of transcript for \"{}\"", transcript.length(), title);
@@ -75,15 +103,8 @@ public class YoutubeTranscriptProvider implements TranscriptProvider {
     // Private helpers
     // -------------------------------------------------------------------------
 
-    private String extractVideoId(String input) {
-        Matcher matcher = VIDEO_ID_PATTERN.matcher(input);
-        if (matcher.find()) {
-            return matcher.group(1);
-        }
-        if (BARE_ID_PATTERN.matcher(input).matches()) {
-            return input;
-        }
-        throw new IllegalArgumentException("Cannot extract a YouTube video ID from: " + input);
+    String extractVideoId(String input) {
+        return videoIdExtractor.extract(input);
     }
 
     private String fetchPage(String videoId) {
@@ -189,13 +210,139 @@ public class YoutubeTranscriptProvider implements TranscriptProvider {
     }
 
     private String fetchTranscriptXml(String url) {
+        List<String> attemptSummaries = new ArrayList<>();
+        Exception lastError = null;
+
+        for (String candidateUrl : buildTranscriptUrlCandidates(url)) {
+            try {
+                ResponseEntity<String> response = restClient.get()
+                        .uri(candidateUrl)
+                        .retrieve()
+                        .toEntity(String.class);
+
+                String body = response.getBody();
+                int bodyLength = body == null ? 0 : body.length();
+                attemptSummaries.add("status=" + response.getStatusCode()
+                        + ", len=" + bodyLength
+                        + ", url=" + summarizeUrl(candidateUrl)
+                        + ", preview='" + bodyPreview(body) + "'");
+
+                if (body != null && !body.isBlank()) {
+                    return body;
+                }
+            } catch (RestClientResponseException e) {
+                lastError = new RuntimeException("HTTP " + e.getStatusCode()
+                        + " while fetching transcript XML");
+                attemptSummaries.add("error=HTTP " + e.getStatusCode()
+                        + ", len=" + e.getResponseBodyAsString().length()
+                        + ", preview='" + bodyPreview(e.getResponseBodyAsString()) + "'"
+                        + ", url=" + summarizeUrl(candidateUrl));
+            } catch (Exception e) {
+                lastError = new RuntimeException("Unexpected error while fetching transcript XML", e);
+                attemptSummaries.add("error=" + e.getClass().getSimpleName()
+                        + ", message='" + (e.getMessage() == null ? "n/a" : e.getMessage()) + "'"
+                        + ", url=" + summarizeUrl(candidateUrl));
+            }
+        }
+
+        log.debug("Transcript XML fetch attempts: {}", String.join(" | ", attemptSummaries));
+
+        String message = "Failed to fetch transcript XML after " + attemptSummaries.size()
+                + " attempts from: " + summarizeUrl(url);
+        throw new RuntimeException(message, lastError);
+    }
+
+    private JsonNode fetchAndroidPlayerResponse(String videoId, String pageHtml) {
+        String apiKey = extractInnertubeApiKey(pageHtml);
+
         try {
-            return restClient.get()
-                    .uri(url)
+            String responseBody = restClient.post()
+                    .uri(YOUTUBE_PLAYER_API_URL + apiKey)
+                    .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                    .header(HttpHeaders.USER_AGENT, ANDROID_USER_AGENT)
+                    .header("X-YouTube-Client-Name", ANDROID_CLIENT_NAME_HEADER)
+                    .header("X-YouTube-Client-Version", ANDROID_CLIENT_VERSION)
+                    .body("{" +
+                            "\"context\":{" +
+                            "\"client\":{" +
+                            "\"clientName\":\"ANDROID\"," +
+                            "\"clientVersion\":\"" + ANDROID_CLIENT_VERSION + "\"," +
+                            "\"hl\":\"en\"," +
+                            "\"gl\":\"US\"," +
+                            "\"androidSdkVersion\":30," +
+                            "\"osName\":\"Android\"," +
+                            "\"osVersion\":\"11\"," +
+                            "\"platform\":\"MOBILE\"" +
+                            "}}," +
+                            "\"videoId\":\"" + videoId + "\"" +
+                            "}")
                     .retrieve()
                     .body(String.class);
+
+            if (responseBody == null || responseBody.isBlank()) {
+                throw new RuntimeException("Android player response was empty");
+            }
+            return objectMapper.readTree(responseBody);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to fetch transcript XML", e);
+            throw new RuntimeException("Failed to fetch Android player response", e);
+        }
+    }
+
+    private String extractInnertubeApiKey(String html) {
+        Matcher matcher = INNERTUBE_API_KEY_PATTERN.matcher(html);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        throw new RuntimeException("INNERTUBE_API_KEY not found in YouTube watch page");
+    }
+
+    private List<String> buildTranscriptUrlCandidates(String originalUrl) {
+        Set<String> urls = new LinkedHashSet<>();
+        urls.add(originalUrl);
+
+        String reduced = UriComponentsBuilder.fromUriString(originalUrl)
+                .replaceQueryParam("variant")
+                .build(true)
+                .toUriString();
+        urls.add(reduced);
+
+        urls.add(UriComponentsBuilder.fromUriString(reduced)
+                .replaceQueryParam("fmt", "xml3")
+                .build(true)
+                .toUriString());
+
+        urls.add(UriComponentsBuilder.fromUriString(reduced)
+                .replaceQueryParam("tlang", "en")
+                .build(true)
+                .toUriString());
+
+        urls.add(UriComponentsBuilder.fromUriString(reduced)
+                .replaceQueryParam("fmt", "xml3")
+                .replaceQueryParam("tlang", "en")
+                .build(true)
+                .toUriString());
+
+        return List.copyOf(urls);
+    }
+
+    private String bodyPreview(String body) {
+        if (body == null) {
+            return "null";
+        }
+        String compact = body.replace('\n', ' ').replace('\r', ' ').strip();
+        return compact.length() <= 120 ? compact : compact.substring(0, 120) + "...";
+    }
+
+    private String summarizeUrl(String url) {
+        try {
+            var components = UriComponentsBuilder.fromUriString(url).build(true);
+            String queryKeys = String.join(",", components.getQueryParams().keySet());
+            if (queryKeys.isBlank()) {
+                return components.getScheme() + "://" + components.getHost() + components.getPath();
+            }
+            return components.getScheme() + "://" + components.getHost() + components.getPath() + "?" + queryKeys;
+        } catch (Exception ignored) {
+            return url;
         }
     }
 
@@ -204,6 +351,10 @@ public class YoutubeTranscriptProvider implements TranscriptProvider {
      * into a single plain-text string.
      */
     private String parseTranscriptXml(String xml) {
+        if (xml == null || xml.isBlank()) {
+            throw new RuntimeException("Failed to parse transcript XML: input was null or blank");
+        }
+
         try {
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             // Disable DOCTYPE to prevent XXE
@@ -215,10 +366,19 @@ public class YoutubeTranscriptProvider implements TranscriptProvider {
             Document doc = builder.parse(new InputSource(new StringReader(xml)));
 
             NodeList textNodes = doc.getElementsByTagName("text");
+            if (textNodes.getLength() == 0) {
+                textNodes = doc.getElementsByTagName("p");
+            }
+
             StringBuilder sb = new StringBuilder(textNodes.getLength() * 60);
 
             for (int i = 0; i < textNodes.getLength(); i++) {
-                String text = textNodes.item(i).getTextContent()
+                String rawText = textNodes.item(i).getTextContent();
+                if (rawText == null) {
+                    continue;
+                }
+
+                String text = rawText
                         .replace('\n', ' ')
                         .strip();
                 if (!text.isEmpty()) {
@@ -228,7 +388,8 @@ public class YoutubeTranscriptProvider implements TranscriptProvider {
 
             return sb.toString().strip();
         } catch (Exception e) {
-            throw new RuntimeException("Failed to parse transcript XML: " + e.getMessage(), e);
+            String message = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+            throw new RuntimeException("Failed to parse transcript XML: " + message, e);
         }
     }
 }

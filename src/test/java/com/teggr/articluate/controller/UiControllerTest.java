@@ -1,5 +1,6 @@
 package com.teggr.articluate.controller;
 
+import com.teggr.articluate.exception.TranscriptNotFoundException;
 import com.teggr.articluate.model.ArticleResponse;
 import com.teggr.articluate.service.ArticleService;
 import org.junit.jupiter.api.Test;
@@ -56,5 +57,20 @@ class UiControllerTest {
         .andExpect(status().isOk())
         .andExpect(content().string(org.hamcrest.Matchers.containsString("Rendered output")))
         .andExpect(content().string(org.hamcrest.Matchers.containsString("Heading")));
+    }
+
+    @Test
+    void postShowsRateLimitErrorFromTranscriptProvider() throws Exception {
+        String rateLimitMessage = "YouTube is rate-limiting transcript requests right now. Please wait a few minutes and try again.";
+
+        when(articleService.generate(any()))
+                .thenThrow(new TranscriptNotFoundException(rateLimitMessage));
+
+        mockMvc.perform(post("/")
+                        .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .param("youtubeUrl", "https://www.youtube.com/watch?v=nfIcjkR4KZ8"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("homeView"))
+                .andExpect(model().attribute("error", rateLimitMessage));
     }
 }
