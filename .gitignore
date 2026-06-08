@@ -37,3 +37,4 @@ target/
 # Environment / secrets
 .env
 *.env.local
+.data/
