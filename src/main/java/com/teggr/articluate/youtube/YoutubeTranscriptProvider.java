@@ -44,7 +44,9 @@ public class YoutubeTranscriptProvider implements TranscriptProvider {
     private static final String ANDROID_CLIENT_VERSION = "20.22.34";
     private static final String ANDROID_USER_AGENT = "com.google.android.youtube/20.22.34 (Linux; U; Android 11) gzip";
     private static final String ANDROID_CLIENT_NAME_HEADER = "3";
-    private static final Pattern INNERTUBE_API_KEY_PATTERN = Pattern.compile("\"INNERTUBE_API_KEY\":\"([^\"]+)\"");
+    private static final int HTTP_429_RETRY_COUNT = 3;
+    private static final Pattern INNERTUBE_API_KEY_PATTERN = Pattern.compile("\"INNERTUBE_API_KEY\"\\s*:\\s*\"([a-zA-Z0-9_-]+)\"");
+    private static final Pattern CONSENT_VALUE_PATTERN = Pattern.compile("name=\"v\" value=\"(.*?)\"");
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
@@ -74,6 +76,7 @@ public class YoutubeTranscriptProvider implements TranscriptProvider {
 
         String pageHtml = fetchPage(videoId);
         JsonNode playerResponse = extractPlayerResponse(pageHtml);
+        assertPlayability(playerResponse, videoId);
 
         String title = extractTitle(playerResponse);
         String xml = null;
@@ -88,6 +91,7 @@ public class YoutubeTranscriptProvider implements TranscriptProvider {
         if (xml == null || xml.isBlank()) {
             try {
                 JsonNode androidPlayerResponse = fetchAndroidPlayerResponse(videoId, pageHtml);
+                assertPlayability(androidPlayerResponse, videoId);
                 String androidCaptionUrl = extractCaptionUrl(androidPlayerResponse);
                 xml = fetchTranscriptXml(androidCaptionUrl);
             } catch (RuntimeException androidCaptionError) {
@@ -96,8 +100,16 @@ public class YoutubeTranscriptProvider implements TranscriptProvider {
         }
 
         if (xml == null || xml.isBlank()) {
-            String timedtextTrackUrl = extractTimedTextTrackUrl(videoId);
-            xml = fetchTranscriptXml(timedtextTrackUrl);
+            try {
+                String timedtextTrackUrl = extractTimedTextTrackUrl(videoId);
+                xml = fetchTranscriptXml(timedtextTrackUrl);
+            } catch (RuntimeException timedtextListError) {
+                log.debug("Timedtext track-list flow failed for {}. Falling back to direct timedtext URL guesses", videoId, timedtextListError);
+            }
+        }
+
+        if (xml == null || xml.isBlank()) {
+            xml = fetchDirectTimedTextXml(videoId);
         }
 
         if (xml == null || xml.isBlank()) {
@@ -120,13 +132,51 @@ public class YoutubeTranscriptProvider implements TranscriptProvider {
 
     private String fetchPage(String videoId) {
         try {
-            return restClient.get()
+            String html = restClient.get()
                     .uri(YOUTUBE_WATCH_URL + videoId)
                     .retrieve()
                     .body(String.class);
+
+            if (html == null || html.isBlank()) {
+                throw new RuntimeException("YouTube watch page was empty");
+            }
+
+            if (html.contains("class=\"g-recaptcha\"") || html.contains("Sign in to confirm you\u2019re not a bot")) {
+                throw new TranscriptNotFoundException(
+                        "YouTube is blocking requests from this server IP (bot check triggered)");
+            }
+
+            if (html.contains("action=\"https://consent.youtube.com/s\"")) {
+                String consentCookie = createConsentCookie(html);
+                html = restClient.get()
+                        .uri(YOUTUBE_WATCH_URL + videoId)
+                        .header(HttpHeaders.COOKIE, consentCookie)
+                        .retrieve()
+                        .body(String.class);
+
+                if (html == null || html.isBlank()) {
+                    throw new RuntimeException("YouTube watch page was empty after consent flow");
+                }
+            }
+
+            return html;
+        } catch (RestClientResponseException e) {
+            if (e.getStatusCode().value() == 429) {
+                throw new TranscriptNotFoundException(
+                        "YouTube is rate-limiting requests from this server IP (HTTP 429)");
+            }
+            throw new RuntimeException("Failed to fetch YouTube page for video ID: " + videoId, e);
         } catch (Exception e) {
             throw new RuntimeException("Failed to fetch YouTube page for video ID: " + videoId, e);
         }
+    }
+
+    private String createConsentCookie(String html) {
+        Matcher matcher = CONSENT_VALUE_PATTERN.matcher(html);
+        if (!matcher.find()) {
+            throw new TranscriptNotFoundException("Failed to create YouTube consent cookie");
+        }
+        return "CONSENT=YES+" + matcher.group(1);
     }
 
     /**
@@ -225,34 +275,46 @@ public class YoutubeTranscriptProvider implements TranscriptProvider {
         Exception lastError = null;
 
         for (String candidateUrl : buildTranscriptUrlCandidates(url)) {
-            try {
-                ResponseEntity<String> response = restClient.get()
-                        .uri(candidateUrl)
-                        .retrieve()
-                        .toEntity(String.class);
+            for (int attempt = 1; attempt <= HTTP_429_RETRY_COUNT; attempt++) {
+                try {
+                    ResponseEntity<String> response = restClient.get()
+                            .uri(candidateUrl)
+                            .retrieve()
+                            .toEntity(String.class);
 
-                String body = response.getBody();
-                int bodyLength = body == null ? 0 : body.length();
-                attemptSummaries.add("status=" + response.getStatusCode()
-                        + ", len=" + bodyLength
-                        + ", url=" + summarizeUrl(candidateUrl)
-                        + ", preview='" + bodyPreview(body) + "'");
+                    String body = response.getBody();
+                    int bodyLength = body == null ? 0 : body.length();
+                    attemptSummaries.add("status=" + response.getStatusCode()
+                            + ", len=" + bodyLength
+                            + ", attempt=" + attempt
+                            + ", url=" + summarizeUrl(candidateUrl)
+                            + ", preview='" + bodyPreview(body) + "'");
 
-                if (body != null && !body.isBlank()) {
-                    return body;
+                    if (body != null && !body.isBlank()) {
+                        return body;
+                    }
+                    break;
+                } catch (RestClientResponseException e) {
+                    lastError = new RuntimeException("HTTP " + e.getStatusCode()
+                            + " while fetching transcript XML");
+                    attemptSummaries.add("error=HTTP " + e.getStatusCode()
+                            + ", len=" + e.getResponseBodyAsString().length()
+                            + ", attempt=" + attempt
+                            + ", preview='" + bodyPreview(e.getResponseBodyAsString()) + "'"
+                            + ", url=" + summarizeUrl(candidateUrl));
+
+                    if (e.getStatusCode().value() == 429 && attempt < HTTP_429_RETRY_COUNT) {
+                        continue;
+                    }
+                    break;
+                } catch (Exception e) {
+                    lastError = new RuntimeException("Unexpected error while fetching transcript XML", e);
+                    attemptSummaries.add("error=" + e.getClass().getSimpleName()
+                            + ", message='" + (e.getMessage() == null ? "n/a" : e.getMessage()) + "'"
+                            + ", attempt=" + attempt
+                            + ", url=" + summarizeUrl(candidateUrl));
+                    break;
                 }
-            } catch (RestClientResponseException e) {
-                lastError = new RuntimeException("HTTP " + e.getStatusCode()
-                        + " while fetching transcript XML");
-                attemptSummaries.add("error=HTTP " + e.getStatusCode()
-                        + ", len=" + e.getResponseBodyAsString().length()
-                        + ", preview='" + bodyPreview(e.getResponseBodyAsString()) + "'"
-                        + ", url=" + summarizeUrl(candidateUrl));
-            } catch (Exception e) {
-                lastError = new RuntimeException("Unexpected error while fetching transcript XML", e);
-                attemptSummaries.add("error=" + e.getClass().getSimpleName()
-                        + ", message='" + (e.getMessage() == null ? "n/a" : e.getMessage()) + "'"
-                        + ", url=" + summarizeUrl(candidateUrl));
             }
         }
 
@@ -294,6 +356,12 @@ public class YoutubeTranscriptProvider implements TranscriptProvider {
                 throw new RuntimeException("Android player response was empty");
             }
             return objectMapper.readTree(responseBody);
+        } catch (RestClientResponseException e) {
+            if (e.getStatusCode().value() == 429) {
+                throw new TranscriptNotFoundException(
+                        "YouTube is rate-limiting requests from this server IP (HTTP 429)");
+            }
+            throw new RuntimeException("Failed to fetch Android player response", e);
         } catch (Exception e) {
             throw new RuntimeException("Failed to fetch Android player response", e);
         }
@@ -304,7 +372,37 @@ public class YoutubeTranscriptProvider implements TranscriptProvider {
         if (matcher.find()) {
             return matcher.group(1);
         }
+        if (html.contains("class=\"g-recaptcha\"") || html.contains("Sign in to confirm you\u2019re not a bot")) {
+            throw new TranscriptNotFoundException(
+                    "YouTube is blocking requests from this server IP (bot check triggered)");
+        }
         throw new RuntimeException("INNERTUBE_API_KEY not found in YouTube watch page");
+    }
+
+    private void assertPlayability(JsonNode playerResponse, String videoId) {
+        JsonNode playability = playerResponse.path("playabilityStatus");
+        if (playability.isMissingNode()) {
+            return;
+        }
+
+        String status = playability.path("status").asText("");
+        if (status.isBlank() || "OK".equals(status)) {
+            return;
+        }
+
+        String reason = playability.path("reason").asText("unknown reason");
+        if ("LOGIN_REQUIRED".equals(status) && reason.contains("not a bot")) {
+            throw new TranscriptNotFoundException(
+                    "YouTube is blocking requests from this server IP (bot check): " + reason);
+        }
+        if ("LOGIN_REQUIRED".equals(status) && reason.contains("inappropriate for some users")) {
+            throw new TranscriptNotFoundException("Video is age-restricted and cannot be transcribed anonymously");
+        }
+        if ("ERROR".equals(status) && reason.toLowerCase().contains("unavailable")) {
+            throw new TranscriptNotFoundException("Video is unavailable: " + videoId);
+        }
+
+        throw new TranscriptNotFoundException("Video is not playable right now: " + reason);
     }
 
     private String extractTimedTextTrackUrl(String videoId) {
@@ -374,7 +472,7 @@ public class YoutubeTranscriptProvider implements TranscriptProvider {
                 throw new TranscriptNotFoundException("No usable timedtext track found for this video");
             }
 
-                UriComponentsBuilder transcriptUrlBuilder = UriComponentsBuilder.fromUriString(YOUTUBE_TIMEDTEXT_URL)
+            UriComponentsBuilder transcriptUrlBuilder = UriComponentsBuilder.fromUriString(YOUTUBE_TIMEDTEXT_URL)
                     .queryParam("v", videoId)
                     .queryParam("lang", langCode)
                     .queryParam("fmt", "xml3");
@@ -391,6 +489,50 @@ public class YoutubeTranscriptProvider implements TranscriptProvider {
         } catch (Exception e) {
             throw new RuntimeException("Failed to parse timedtext track list", e);
         }
+    }
+
+    private String fetchDirectTimedTextXml(String videoId) {
+        List<String> candidates = List.of(
+                UriComponentsBuilder.fromUriString(YOUTUBE_TIMEDTEXT_URL)
+                        .queryParam("v", videoId)
+                        .queryParam("lang", "en")
+                        .queryParam("fmt", "xml3")
+                        .build(true)
+                        .toUriString(),
+                UriComponentsBuilder.fromUriString(YOUTUBE_TIMEDTEXT_URL)
+                        .queryParam("v", videoId)
+                        .queryParam("lang", "en-US")
+                        .queryParam("fmt", "xml3")
+                        .build(true)
+                        .toUriString(),
+                UriComponentsBuilder.fromUriString(YOUTUBE_TIMEDTEXT_URL)
+                        .queryParam("v", videoId)
+                        .queryParam("lang", "en")
+                        .queryParam("kind", "asr")
+                        .queryParam("fmt", "xml3")
+                        .build(true)
+                        .toUriString(),
+                UriComponentsBuilder.fromUriString(YOUTUBE_TIMEDTEXT_URL)
+                        .queryParam("v", videoId)
+                        .queryParam("lang", "en-US")
+                        .queryParam("kind", "asr")
+                        .queryParam("fmt", "xml3")
+                        .build(true)
+                        .toUriString()
+        );
+
+        RuntimeException lastError = null;
+        for (String candidate : candidates) {
+            try {
+                return fetchTranscriptXml(candidate);
+            } catch (RuntimeException ex) {
+                lastError = ex;
+            }
+        }
+
+        throw new TranscriptNotFoundException(
+            "No captions available for this video — timedtext list and direct timedtext lookups failed"
+                + (lastError == null ? "" : ": " + lastError.getMessage()));
     }
 
     private List<String> buildTranscriptUrlCandidates(String originalUrl) {
