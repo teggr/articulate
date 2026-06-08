@@ -2,23 +2,25 @@ spring:
   application:
     name: articluate
 
+  model:
+    chat: google-genai
+
   ai:
-    openai:
-      # Gemini API key — set via GEMINI_API_KEY environment variable or override here
-      api-key: ${GEMINI_API_KEY:change-me}
-      # Gemini's OpenAI-compatible endpoint
-      base-url: https://generativelanguage.googleapis.com/v1beta/openai/
-      chat:
-        model: gemini-2.5-flash
-        temperature: 0.7
-      # Embeddings are not used; point at the same base URL to satisfy auto-configuration
-      embedding:
-        base-url: https://generativelanguage.googleapis.com/v1beta/openai/
+    google:
+      genai:
+        # Gemini API key — set via GEMINI_API_KEY environment variable or override here
+        api-key: ${GEMINI_API_KEY:change-me}
+        chat:
+          model: gemini-2.5-flash
+          temperature: 0.7
 
 server:
   port: 8080
 
 articluate:
+  ai:
+    # 0 disables capping. Set e.g. 12000 to test whether large prompts trigger provider 500s.
+    max-transcript-chars: 12000
   transcript-cache:
     dir: .data
 

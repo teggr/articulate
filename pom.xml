@@ -69,10 +69,10 @@
             <artifactId>htmx-j2html-extension</artifactId>
         </dependency>
 
-        <!-- Spring AI (OpenAI-compatible client, pointed at Gemini) -->
+        <!-- Spring AI (native Google GenAI Gemini client) -->
         <dependency>
             <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-starter-model-openai</artifactId>
+            <artifactId>spring-ai-starter-model-google-genai</artifactId>
         </dependency>
 
         <!-- Markdown to HTML -->

@@ -6,9 +6,7 @@ import org.springframework.test.context.TestPropertySource;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @TestPropertySource(properties = {
-        "spring.ai.openai.api-key=test-key",
-        "spring.ai.openai.base-url=http://localhost:1234",
-        "spring.ai.openai.embedding.base-url=http://localhost:1234"
+    "spring.ai.google.genai.api-key=test-key"
 })
 class ArticluateApplicationTests {
 

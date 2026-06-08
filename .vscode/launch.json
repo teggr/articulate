@@ -9,7 +9,8 @@
             "name": "ArticluateApplication",
             "request": "launch",
             "mainClass": "com.teggr.articluate.ArticluateApplication",
-            "projectName": "articluate"
+            "projectName": "articluate",
+            "envFile": "${workspaceFolder}/.env"
         }
     ]
 }
