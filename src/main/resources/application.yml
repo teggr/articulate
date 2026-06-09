@@ -27,3 +27,9 @@ articluate:
 logging:
   level:
     com.teggr.articluate: INFO
+
+youtube:
+  proxy:
+    enabled: ${YOUTUBE_PROXY_ENABLED:false}
+    username: ${NORDVPN_USERNAME:}
+    password: ${NORDVPN_PASSWORD:}
