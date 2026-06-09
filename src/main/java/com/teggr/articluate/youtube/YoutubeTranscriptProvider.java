@@ -4,11 +4,14 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import com.teggr.articluate.exception.TranscriptNotFoundException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -19,6 +22,10 @@ import org.xml.sax.InputSource;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.StringReader;
+import java.net.Authenticator;
+import java.net.InetSocketAddress;
+import java.net.PasswordAuthentication;
+import java.net.Proxy;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -47,26 +54,151 @@ public class YoutubeTranscriptProvider implements TranscriptProvider {
     private static final int HTTP_429_RETRY_COUNT = 3;
     private static final Pattern INNERTUBE_API_KEY_PATTERN = Pattern.compile("\"INNERTUBE_API_KEY\"\\s*:\\s*\"([a-zA-Z0-9_-]+)\"");
     private static final Pattern CONSENT_VALUE_PATTERN = Pattern.compile("name=\"v\" value=\"(.*?)\"");
+    private static final Object PROXY_AUTH_LOCK = new Object();
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
     private final YouTubeVideoIdExtractor videoIdExtractor;
+    private final String proxyHost;
+    private final int proxyPort;
+    private final String proxyUsername;
+    private final String proxyPassword;
+    private final boolean proxyEnabled;
 
     @Autowired
-    public YoutubeTranscriptProvider(ObjectMapper objectMapper) {
-        this(objectMapper, new YouTubeVideoIdExtractor());
+    public YoutubeTranscriptProvider(
+            ObjectMapper objectMapper,
+            @Value("${youtube.proxy.enabled:false}") boolean proxyEnabled,
+            @Value("${youtube.proxy.host:us.socks.nordhold.net}") String proxyHost,
+            @Value("${youtube.proxy.port:1080}") int proxyPort,
+            @Value("${youtube.proxy.username:}") String proxyUsername,
+            @Value("${youtube.proxy.password:}") String proxyPassword) {
+        this(
+                objectMapper,
+                new YouTubeVideoIdExtractor(),
+                proxyEnabled,
+                proxyHost,
+                proxyPort,
+                proxyUsername,
+                proxyPassword
+        );
     }
 
-    YoutubeTranscriptProvider(ObjectMapper objectMapper, YouTubeVideoIdExtractor videoIdExtractor) {
+    YoutubeTranscriptProvider(ObjectMapper objectMapper) {
+        this(
+                objectMapper,
+                new YouTubeVideoIdExtractor(),
+                false,
+                "us.socks.nordhold.net",
+                1080,
+                "",
+                ""
+        );
+    }
+
+    YoutubeTranscriptProvider(
+            ObjectMapper objectMapper,
+            YouTubeVideoIdExtractor videoIdExtractor,
+            boolean proxyEnabled,
+            String proxyHost,
+            int proxyPort,
+            String proxyUsername,
+            String proxyPassword) {
         this.objectMapper = objectMapper;
         this.videoIdExtractor = videoIdExtractor;
-        this.restClient = RestClient.builder()
+        this.proxyEnabled = proxyEnabled;
+        this.proxyHost = proxyHost;
+        this.proxyPort = proxyPort;
+        this.proxyUsername = proxyUsername;
+        this.proxyPassword = proxyPassword;
+        this.restClient = buildRestClient();
+    }
+
+    private RestClient buildRestClient() {
+        RestClient.Builder builder = RestClient.builder()
                 .defaultHeader("Accept-Language", "en-US,en;q=0.9")
                 .defaultHeader("User-Agent",
                         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
                         "AppleWebKit/537.36 (KHTML, like Gecko) " +
-                        "Chrome/124.0.0.0 Safari/537.36")
-            .build();
+                        "Chrome/124.0.0.0 Safari/537.36");
+
+        if (proxyEnabled) {
+            if (isProxyConfigured()) {
+                SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+                requestFactory.setProxy(new Proxy(Proxy.Type.SOCKS, new InetSocketAddress(proxyHost, proxyPort)));
+                builder.requestFactory(requestFactory);
+                configureProxyAuthenticator();
+                log.info("YouTube proxy enabled: {}:{}", proxyHost, proxyPort);
+            } else {
+                log.warn("youtube.proxy.enabled=true, but proxy configuration is incomplete ({}). Using direct YouTube connection.",
+                        String.join(", ", proxyValidationIssues()));
+            }
+        }
+        return builder.build();
+    }
+
+    private boolean isProxyConfigured() {
+        return StringUtils.hasText(proxyHost)
+                && proxyPort > 0
+                && StringUtils.hasText(proxyUsername)
+                && StringUtils.hasText(proxyPassword);
+    }
+
+    private void configureProxyAuthenticator() {
+        synchronized (PROXY_AUTH_LOCK) {
+            if (Authenticator.getDefault() != null) {
+                log.debug("A global JVM authenticator already exists; skipping proxy authenticator override.");
+                return;
+            }
+            Authenticator.setDefault(new ProxyAuthenticator(proxyHost, proxyPort, proxyUsername, proxyPassword));
+        }
+    }
+
+    private List<String> proxyValidationIssues() {
+        List<String> issues = new ArrayList<>();
+        if (!StringUtils.hasText(proxyHost)) {
+            issues.add("missing host");
+        }
+        if (proxyPort <= 0) {
+            issues.add("invalid port");
+        }
+        if (!StringUtils.hasText(proxyUsername)) {
+            issues.add("missing username");
+        }
+        if (!StringUtils.hasText(proxyPassword)) {
+            issues.add("missing password");
+        }
+        return issues;
+    }
+
+    private static final class ProxyAuthenticator extends Authenticator {
+        private final String proxyHost;
+        private final int proxyPort;
+        private final String proxyUsername;
+        private final String proxyPassword;
+
+        private ProxyAuthenticator(String proxyHost, int proxyPort, String proxyUsername, String proxyPassword) {
+            this.proxyHost = proxyHost;
+            this.proxyPort = proxyPort;
+            this.proxyUsername = proxyUsername;
+            this.proxyPassword = proxyPassword;
+        }
+
+        @Override
+        protected PasswordAuthentication getPasswordAuthentication() {
+            if (getRequestorType() != RequestorType.PROXY) {
+                return null;
+            }
+            int requestingPort = getRequestingPort();
+            if (requestingPort != -1 && proxyPort != requestingPort) {
+                return null;
+            }
+            String requestingHost = getRequestingHost();
+            if (requestingHost == null || !requestingHost.equalsIgnoreCase(proxyHost)) {
+                return null;
+            }
+            return new PasswordAuthentication(proxyUsername, proxyPassword.toCharArray());
+        }
     }
 
     @Override

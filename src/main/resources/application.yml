@@ -27,3 +27,11 @@ articluate:
 logging:
   level:
     com.teggr.articluate: INFO
+
+youtube:
+  proxy:
+    enabled: ${YOUTUBE_PROXY_ENABLED:false}
+    host: ${YOUTUBE_PROXY_HOST:us.socks.nordhold.net}
+    port: ${YOUTUBE_PROXY_PORT:1080}
+    username: ${NORDVPN_USERNAME:}
+    password: ${NORDVPN_PASSWORD:}

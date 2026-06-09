@@ -97,3 +97,7 @@ Required GitHub secrets for the workflow:
 - `PRIVATE_KEY`
 - `PRIVATE_KEY_PASSPHRASE`
 - `GEMINI_API_KEY`
+- `NORDVPN_USERNAME` (optional)
+- `NORDVPN_PASSWORD` (optional)
+
+If both NordVPN secrets are set, deployment enables `YOUTUBE_PROXY_ENABLED=true` automatically.

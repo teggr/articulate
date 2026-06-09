@@ -76,7 +76,13 @@ jobs:
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
           PRIVATE_KEY_PASSPHRASE: ${{ secrets.PRIVATE_KEY_PASSPHRASE }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          NORDVPN_USERNAME: ${{ secrets.NORDVPN_USERNAME }}
+          NORDVPN_PASSWORD: ${{ secrets.NORDVPN_PASSWORD }}
         run: |
+          YOUTUBE_PROXY_ENABLED=false
+          if [ -n "$NORDVPN_USERNAME" ] && [ -n "$NORDVPN_PASSWORD" ]; then
+            YOUTUBE_PROXY_ENABLED=true
+          fi
           mkdir -p .deploy4j
           cat > .deploy4j/secrets << "EOF"
           DOCKER_USERNAME=$DOCKER_USERNAME
@@ -84,6 +90,9 @@ jobs:
           PRIVATE_KEY_PASSPHRASE=$PRIVATE_KEY_PASSPHRASE
           PRIVATE_KEY=~/.ssh/id_rsa
           GEMINI_API_KEY=$GEMINI_API_KEY
+          NORDVPN_USERNAME=$NORDVPN_USERNAME
+          NORDVPN_PASSWORD=$NORDVPN_PASSWORD
+          YOUTUBE_PROXY_ENABLED=$YOUTUBE_PROXY_ENABLED
           EOF
 
       - name: Deploy application with deploy4j via jbang
@@ -92,6 +101,8 @@ jobs:
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
           PRIVATE_KEY_PASSPHRASE: ${{ secrets.PRIVATE_KEY_PASSPHRASE }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          NORDVPN_USERNAME: ${{ secrets.NORDVPN_USERNAME }}
+          NORDVPN_PASSWORD: ${{ secrets.NORDVPN_PASSWORD }}
         run: jbang --java 25 dev.deploy4j:deploy4j-cli:0.0.6 deploy --version ${{ steps.set_release_version.outputs.release_version }}
 
       - name: Tag release
