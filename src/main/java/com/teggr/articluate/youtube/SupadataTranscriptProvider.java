@@ -11,7 +11,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
-import org.springframework.web.util.UriComponentsBuilder;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -93,17 +92,14 @@ public class SupadataTranscriptProvider implements TranscriptProvider {
     }
 
     private JsonNode requestTranscript(String youtubeUrl) {
-        String uri = UriComponentsBuilder.fromPath("/transcript")
-                .queryParam("url", youtubeUrl)
-                .queryParam("mode", "native")
-                .queryParam("text", "true")
-                .build()
-                .encode()
-                .toUriString();
-
         try {
             ResponseEntity<String> response = restClient.get()
-                    .uri(uri)
+                .uri(uriBuilder -> uriBuilder
+                    .path("/transcript")
+                    .queryParam("url", youtubeUrl)
+                    .queryParam("mode", "native")
+                    .queryParam("text", true)
+                    .build())
                     .retrieve()
                     .toEntity(String.class);
 
