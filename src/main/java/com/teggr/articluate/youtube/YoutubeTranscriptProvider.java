@@ -126,10 +126,10 @@ public class YoutubeTranscriptProvider implements TranscriptProvider {
                 SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
                 requestFactory.setProxy(new Proxy(Proxy.Type.SOCKS, new InetSocketAddress(proxyHost, proxyPort)));
                 builder.requestFactory(requestFactory);
-                Authenticator.setDefault(new ProxyAuthenticator(proxyHost, proxyPort, proxyUsername, proxyPassword));
+                configureProxyAuthenticator();
                 log.info("YouTube proxy enabled: {}:{}", proxyHost, proxyPort);
             } else {
-                log.warn("youtube.proxy.enabled=true, but proxy credentials are missing. Using direct YouTube connection.");
+                log.warn("youtube.proxy.enabled=true, but proxy configuration is incomplete (missing host, port, username, or password). Using direct YouTube connection.");
             }
         }
         return builder.build();
@@ -140,6 +140,14 @@ public class YoutubeTranscriptProvider implements TranscriptProvider {
                 && proxyPort > 0
                 && StringUtils.hasText(proxyUsername)
                 && StringUtils.hasText(proxyPassword);
+    }
+
+    private void configureProxyAuthenticator() {
+        if (Authenticator.getDefault() != null) {
+            log.debug("A global JVM authenticator already exists; skipping proxy authenticator override.");
+            return;
+        }
+        Authenticator.setDefault(new ProxyAuthenticator(proxyHost, proxyPort, proxyUsername, proxyPassword));
     }
 
     private static final class ProxyAuthenticator extends Authenticator {
@@ -160,7 +168,8 @@ public class YoutubeTranscriptProvider implements TranscriptProvider {
             if (getRequestorType() != RequestorType.PROXY) {
                 return null;
             }
-            if (proxyPort != getRequestingPort()) {
+            int requestingPort = getRequestingPort();
+            if (requestingPort != -1 && proxyPort != requestingPort) {
                 return null;
             }
             String requestingHost = getRequestingHost();
