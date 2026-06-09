@@ -54,6 +54,7 @@ public class YoutubeTranscriptProvider implements TranscriptProvider {
     private static final int HTTP_429_RETRY_COUNT = 3;
     private static final Pattern INNERTUBE_API_KEY_PATTERN = Pattern.compile("\"INNERTUBE_API_KEY\"\\s*:\\s*\"([a-zA-Z0-9_-]+)\"");
     private static final Pattern CONSENT_VALUE_PATTERN = Pattern.compile("name=\"v\" value=\"(.*?)\"");
+    private static final Object PROXY_AUTH_LOCK = new Object();
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
@@ -129,7 +130,8 @@ public class YoutubeTranscriptProvider implements TranscriptProvider {
                 configureProxyAuthenticator();
                 log.info("YouTube proxy enabled: {}:{}", proxyHost, proxyPort);
             } else {
-                log.warn("youtube.proxy.enabled=true, but proxy configuration is incomplete (missing host, port, username, or password). Using direct YouTube connection.");
+                log.warn("youtube.proxy.enabled=true, but proxy configuration is incomplete ({}). Using direct YouTube connection.",
+                        String.join(", ", proxyValidationIssues()));
             }
         }
         return builder.build();
@@ -143,11 +145,30 @@ public class YoutubeTranscriptProvider implements TranscriptProvider {
     }
 
     private void configureProxyAuthenticator() {
-        if (Authenticator.getDefault() != null) {
-            log.debug("A global JVM authenticator already exists; skipping proxy authenticator override.");
-            return;
+        synchronized (PROXY_AUTH_LOCK) {
+            if (Authenticator.getDefault() != null) {
+                log.debug("A global JVM authenticator already exists; skipping proxy authenticator override.");
+                return;
+            }
+            Authenticator.setDefault(new ProxyAuthenticator(proxyHost, proxyPort, proxyUsername, proxyPassword));
         }
-        Authenticator.setDefault(new ProxyAuthenticator(proxyHost, proxyPort, proxyUsername, proxyPassword));
+    }
+
+    private List<String> proxyValidationIssues() {
+        List<String> issues = new ArrayList<>();
+        if (!StringUtils.hasText(proxyHost)) {
+            issues.add("missing host");
+        }
+        if (proxyPort <= 0) {
+            issues.add("invalid port");
+        }
+        if (!StringUtils.hasText(proxyUsername)) {
+            issues.add("missing username");
+        }
+        if (!StringUtils.hasText(proxyPassword)) {
+            issues.add("missing password");
+        }
+        return issues;
     }
 
     private static final class ProxyAuthenticator extends Authenticator {
