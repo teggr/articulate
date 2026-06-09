@@ -97,7 +97,8 @@ public class SupadataTranscriptProvider implements TranscriptProvider {
                 .queryParam("url", youtubeUrl)
                 .queryParam("mode", "native")
                 .queryParam("text", "true")
-                .build(true)
+                .build()
+                .encode()
                 .toUriString();
 
         try {
