@@ -49,29 +49,6 @@ Then open `http://localhost:8080/` for the public landing page.
 The article generator UI is at `http://localhost:8080/generate` and requires authentication.
 Spring Security will require authentication for `/generate` and API endpoints using the configured username and password.
 
-## API
-
-### Generate article
-
-```
-POST /api/articles
-Content-Type: application/json
-
-{
-  "youtubeUrl": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-}
-```
-
-Response:
-
-```json
-{
-  "title": "...",
-  "markdown": "...",
-  "html": "..."
-}
-```
-
 ## Docker + deploy4j release flow
 
 This repository now follows the same deployment approach as yorkshire-golf:
