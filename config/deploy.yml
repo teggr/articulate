@@ -1,5 +1,5 @@
-service: articluate
-image: teggr/articluate
+service: articulate
+image: teggr/articulate
 
 servers:
   web:
@@ -8,15 +8,15 @@ servers:
     options:
       add-host: host.docker.internal:host-gateway
     labels:
-      traefik.http.routers.articluate.rule: "Host(`articulate.me.uk`) || Host(`www.articulate.me.uk`)"
-      traefik.http.routers.articluate.entrypoints: "websecure"
-      traefik.http.routers.articluate.tls: "true"
-      traefik.http.routers.articluate.tls.certresolver: "letsencrypt"
+      traefik.http.routers.articulate.rule: "Host(`articulate.me.uk`) || Host(`www.articulate.me.uk`)"
+      traefik.http.routers.articulate.entrypoints: "websecure"
+      traefik.http.routers.articulate.tls: "true"
+      traefik.http.routers.articulate.tls.certresolver: "letsencrypt"
 
 env:
   clear:
     SERVER_PORT: 8080
-    ARTICULATE_TRANSCRIPT-CACHE_DIR: "/articluate-data"
+    ARTICULATE_TRANSCRIPT-CACHE_DIR: "/articulate-data"
   secret:
     - GEMINI_API_KEY
     - SUPADATA_API_KEY
@@ -54,4 +54,4 @@ traefik:
     certificatesResolvers.letsencrypt.acme.httpchallenge.entrypoint: "web"
 
 volumes:
-  - /articluate-data:/articluate-data
+  - /articulate-data:/articulate-data

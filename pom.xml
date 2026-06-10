@@ -12,9 +12,9 @@
     </parent>
 
     <groupId>com.teggr</groupId>
-    <artifactId>articluate</artifactId>
+    <artifactId>articulate</artifactId>
     <version>0.0.10-SNAPSHOT</version>
-    <name>articluate</name>
+    <name>articulate</name>
     <description>Convert YouTube videos into readable blog articles</description>
 
     <properties>
@@ -144,7 +144,7 @@
                 <configuration>
                     <images>
                         <image>
-                            <name>teggr/articluate:${project.version}</name>
+                            <name>teggr/articulate:${project.version}</name>
                             <build>
                                 <dockerFile>${project.basedir}/Dockerfile</dockerFile>
                                 <contextDir>${project.basedir}</contextDir>

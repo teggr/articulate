@@ -1,4 +1,4 @@
-# articluate
+# articulate
 
 A service for converting YouTube videos into readable blog articles.
 
@@ -30,7 +30,7 @@ A service for converting YouTube videos into readable blog articles.
 cd backend
 GEMINI_API_KEY=your-key-here \
 SUPADATA_API_KEY=your-key-here \
-SPRING_SECURITY_USER_NAME=articluate \
+SPRING_SECURITY_USER_NAME=articulate \
 SPRING_SECURITY_USER_PASSWORD=change-me \
 mvn spring-boot:run
 ```
@@ -40,7 +40,7 @@ Or export the environment variable first:
 ```bash
 export GEMINI_API_KEY=your-key-here
 export SUPADATA_API_KEY=your-key-here
-export SPRING_SECURITY_USER_NAME=articluate
+export SPRING_SECURITY_USER_NAME=articulate
 export SPRING_SECURITY_USER_PASSWORD=change-me
 cd backend && mvn spring-boot:run
 ```

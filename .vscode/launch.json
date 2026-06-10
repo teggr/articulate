@@ -8,8 +8,8 @@
             "type": "java",
             "name": "ArticulateApplication",
             "request": "launch",
-            "mainClass": "com.teggr.articluate.ArticulateApplication",
-            "projectName": "articluate",
+            "mainClass": "com.teggr.articulate.ArticulateApplication",
+            "projectName": "articulate",
             "envFile": "${workspaceFolder}/.env"
         }
     ]

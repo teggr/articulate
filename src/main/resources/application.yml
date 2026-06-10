@@ -1,10 +1,10 @@
 spring:
   application:
-    name: articluate
+    name: articulate
 
   security:
     user:
-      name: ${SPRING_SECURITY_USER_NAME:articluate}
+      name: ${SPRING_SECURITY_USER_NAME:articulate}
       password: ${SPRING_SECURITY_USER_PASSWORD:change-me}
 
   model:
@@ -22,7 +22,7 @@ spring:
 server:
   port: 8080
 
-articluate:
+articulate:
   ai:
     # 0 disables capping. Set e.g. 12000 to test whether large prompts trigger provider 500s.
     max-transcript-chars: 12000
@@ -31,7 +31,7 @@ articluate:
 
 logging:
   level:
-    com.teggr.articluate: INFO
+    com.teggr.articulate: INFO
 
 supadata:
   api-key: ${SUPADATA_API_KEY:}
