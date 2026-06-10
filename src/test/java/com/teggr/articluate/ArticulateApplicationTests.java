@@ -8,7 +8,7 @@ import org.springframework.test.context.TestPropertySource;
 @TestPropertySource(properties = {
     "spring.ai.google.genai.api-key=test-key"
 })
-class ArticluateApplicationTests {
+class ArticulateApplicationTests {
 
     @Test
     void contextLoads() {

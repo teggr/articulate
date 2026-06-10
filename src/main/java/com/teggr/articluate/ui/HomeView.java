@@ -45,7 +45,7 @@ public class HomeView extends J2HtmlView {
                 head(
                         meta().withCharset("UTF-8"),
                         meta().attr("name", "viewport").attr("content", "width=device-width, initial-scale=1"),
-                        title("Articluate"),
+                        title("Articulate"),
                         script().withSrc("https://unpkg.com/htmx.org@2.0.4"),
                         style("""
                                 body { font-family: system-ui, sans-serif; margin: 0; background: #f7f7f7; color: #222; }

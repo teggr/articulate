@@ -6,9 +6,9 @@
     "configurations": [
         {
             "type": "java",
-            "name": "ArticluateApplication",
+            "name": "ArticulateApplication",
             "request": "launch",
-            "mainClass": "com.teggr.articluate.ArticluateApplication",
+            "mainClass": "com.teggr.articluate.ArticulateApplication",
             "projectName": "articluate",
             "envFile": "${workspaceFolder}/.env"
         }

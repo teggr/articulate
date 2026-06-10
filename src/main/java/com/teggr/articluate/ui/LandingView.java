@@ -33,7 +33,7 @@ public class LandingView extends J2HtmlView {
                 head(
                         meta().withCharset("UTF-8"),
                         meta().attr("name", "viewport").attr("content", "width=device-width, initial-scale=1"),
-                        title("Articluate"),
+                        title("Articulate"),
                         style("""
                                 :root { --bg-0: #0b1220; --bg-1: #17233b; --text: #eef2ff; --muted: #c6d0ea; --card: #ffffff; --card-text: #12203a; --accent: #2ea6ff; }
                                 * { box-sizing: border-box; }
@@ -53,8 +53,8 @@ public class LandingView extends J2HtmlView {
                 body(
                         main().withClass("page").with(
                                 div().withClass("jumbotron").with(
-                                        h1("Articluate turns YouTube videos into polished articles."),
-                                        p("Paste a video URL and Articluate fetches transcripts, cleans noisy speech patterns, and generates structured long-form writing with readable HTML and Markdown output."),
+                                        h1("Articulate turns YouTube videos into polished articles."),
+                                        p("Paste a video URL and Articulate fetches transcripts, cleans noisy speech patterns, and generates structured long-form writing with readable HTML and Markdown output."),
                                         p("Use it to quickly repurpose talks, tutorials, and interviews into blog-ready content without writing from scratch.")
                                 ),
                                 div().withClass("panel").with(
