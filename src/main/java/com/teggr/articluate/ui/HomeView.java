@@ -64,8 +64,8 @@ public class HomeView extends J2HtmlView {
                                 h1("YouTube to Blog"),
                                 p("Submit a YouTube URL to generate an article."),
                                 form().withMethod("post")
-                                        .withAction("/")
-                                        .attr(hxPost("/ui/articles"))
+                                        .withAction("/generate")
+                                        .attr(hxPost("/generate/ui/articles"))
                                         .attr(hxTarget("#article-result"))
                                         .attr(hxSwap(innerHTML))
                                         .attr(hxIndicator("#loading-indicator"))

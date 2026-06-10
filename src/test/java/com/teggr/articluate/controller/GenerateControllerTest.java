@@ -6,8 +6,8 @@ import com.teggr.articluate.service.ArticleService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -16,13 +16,13 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
-@WebMvcTest(UiController.class)
-class UiControllerTest {
+@WebMvcTest(GenerateController.class)
+class GenerateControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -31,8 +31,8 @@ class UiControllerTest {
     private ArticleService articleService;
 
     @Test
-    void getIndexReturnsIndexView() throws Exception {
-        mockMvc.perform(get("/").with(user("test-user")))
+    void getGenerateReturnsHomeView() throws Exception {
+        mockMvc.perform(get("/generate").with(user("test-user")))
                 .andExpect(status().isOk())
                 .andExpect(view().name("homeView"))
                 .andExpect(model().attributeExists("youtubeUrl"));
@@ -40,29 +40,29 @@ class UiControllerTest {
 
     @Test
     void postBlankUrlReturnsValidationError() throws Exception {
-        mockMvc.perform(post("/")
-            .with(user("test-user"))
-            .with(csrf())
-                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .param("youtubeUrl", "   "))
-        .andExpect(status().isOk())
-        .andExpect(view().name("homeView"))
-        .andExpect(model().attribute("error", "Please provide a YouTube URL."));
+        mockMvc.perform(post("/generate")
+                        .with(user("test-user"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .param("youtubeUrl", "   "))
+                .andExpect(status().isOk())
+                .andExpect(view().name("homeView"))
+                .andExpect(model().attribute("error", "Please provide a YouTube URL."));
     }
 
     @Test
     void postHtmxEndpointReturnsRenderedHtml() throws Exception {
         when(articleService.generate(any()))
-        .thenReturn(new ArticleResponse("Title", "# Heading", "<h1>Heading</h1>"));
+                .thenReturn(new ArticleResponse("Title", "# Heading", "<h1>Heading</h1>"));
 
-        mockMvc.perform(post("/ui/articles")
-            .with(user("test-user"))
-            .with(csrf())
-                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .param("youtubeUrl", "https://www.youtube.com/watch?v=abc123"))
-        .andExpect(status().isOk())
-        .andExpect(content().string(org.hamcrest.Matchers.containsString("Rendered output")))
-        .andExpect(content().string(org.hamcrest.Matchers.containsString("Heading")));
+        mockMvc.perform(post("/generate/ui/articles")
+                        .with(user("test-user"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .param("youtubeUrl", "https://www.youtube.com/watch?v=abc123"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Rendered output")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Heading")));
     }
 
     @Test
@@ -72,9 +72,9 @@ class UiControllerTest {
         when(articleService.generate(any()))
                 .thenThrow(new TranscriptNotFoundException(rateLimitMessage));
 
-        mockMvc.perform(post("/")
-                .with(user("test-user"))
-                .with(csrf())
+        mockMvc.perform(post("/generate")
+                        .with(user("test-user"))
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                         .param("youtubeUrl", "https://www.youtube.com/watch?v=nfIcjkR4KZ8"))
                 .andExpect(status().isOk())

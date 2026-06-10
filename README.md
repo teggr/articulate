@@ -45,8 +45,9 @@ export SPRING_SECURITY_USER_PASSWORD=change-me
 cd backend && mvn spring-boot:run
 ```
 
-Then open `http://localhost:8080/` for the web UI.
-Spring Security will require authentication for UI and API endpoints using the configured username and password.
+Then open `http://localhost:8080/` for the public landing page.
+The article generator UI is at `http://localhost:8080/generate` and requires authentication.
+Spring Security will require authentication for `/generate` and API endpoints using the configured username and password.
 
 ## API
 

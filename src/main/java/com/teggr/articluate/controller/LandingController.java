@@ -1,0 +1,15 @@
+package com.teggr.articluate.controller;
+
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+
+@Controller
+public class LandingController {
+
+    @GetMapping("/")
+    public String landing(Model model) {
+        model.addAttribute("loginUrl", "/login");
+        return "landingView";
+    }
+}

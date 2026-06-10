@@ -13,20 +13,22 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 @Controller
+@RequestMapping("/generate")
 @RequiredArgsConstructor
-public class UiController {
+public class GenerateController {
 
-    private static final Logger log = LoggerFactory.getLogger(UiController.class);
+    private static final Logger log = LoggerFactory.getLogger(GenerateController.class);
     private static final String EMPTY_URL_ERROR = "Please provide a YouTube URL.";
     private static final String GENERIC_ERROR = "Unable to generate article right now. Please try again.";
 
     private final ArticleService articleService;
 
-    @GetMapping("/")
+    @GetMapping
     public String index(Model model) {
         if (!model.containsAttribute("youtubeUrl")) {
             model.addAttribute("youtubeUrl", "");
@@ -34,7 +36,7 @@ public class UiController {
         return "homeView";
     }
 
-    @PostMapping(value = "/", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+    @PostMapping(consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
     public String generate(@RequestParam(name = "youtubeUrl", required = false) String youtubeUrl, Model model) {
         String normalizedUrl = normalize(youtubeUrl);
         model.addAttribute("youtubeUrl", normalizedUrl);
