@@ -59,4 +59,29 @@ class FileSystemTranscriptRepositoryTest {
 
         assertTrue(dataDir.resolve("transcripts").resolve("trn-1234.json").toFile().exists());
     }
+
+    @Test
+    void findByVideoIdReturnsMostRecentTranscript() {
+        FileSystemTranscriptRepository repository = repository();
+        TranscriptResult older = new TranscriptResult(
+                "trn-old",
+                "2026-06-10T22:00:00Z",
+                "abc1234DEFG",
+                "Older",
+                "Older transcript");
+        TranscriptResult newer = new TranscriptResult(
+                "trn-new",
+                "2026-06-11T10:00:00Z",
+                "abc1234DEFG",
+                "Newer",
+                "Newer transcript");
+
+        repository.save(older);
+        repository.save(newer);
+
+        Optional<TranscriptResult> loaded = repository.findByVideoId("abc1234DEFG");
+
+        assertTrue(loaded.isPresent());
+        assertEquals(newer, loaded.get());
+    }
 }

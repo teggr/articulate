@@ -7,7 +7,9 @@ import org.springframework.stereotype.Component;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 @Component
 @Slf4j
@@ -38,6 +40,26 @@ public class FileSystemTranscriptRepository implements TranscriptRepository {
     }
 
     @Override
+    public Optional<TranscriptResult> findByVideoId(String videoId) {
+        if (!Files.exists(repositoryDir)) {
+            return Optional.empty();
+        }
+
+        try (Stream<Path> files = Files.list(repositoryDir)) {
+            return files
+                    .filter(path -> path.getFileName().toString().endsWith(".json"))
+                    .map(this::readTranscriptSafely)
+                    .flatMap(Optional::stream)
+                    .filter(transcript -> videoId.equals(transcript.videoId()))
+                    .sorted(Comparator.comparing(TranscriptResult::createdAt,
+                            Comparator.nullsLast(Comparator.reverseOrder())))
+                    .findFirst();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to scan transcripts for video id " + videoId, e);
+        }
+    }
+
+    @Override
     public void save(TranscriptResult transcript) {
         if (transcript.id() == null || transcript.id().isBlank()) {
             throw new IllegalArgumentException("Transcript id is required before saving");
@@ -55,5 +77,14 @@ public class FileSystemTranscriptRepository implements TranscriptRepository {
 
     private Path transcriptFile(String id) {
         return repositoryDir.resolve(id + ".json");
+    }
+
+    private Optional<TranscriptResult> readTranscriptSafely(Path file) {
+        try {
+            return Optional.of(objectMapper.readValue(file.toFile(), TranscriptResult.class));
+        } catch (Exception e) {
+            log.warn("Skipping unreadable transcript file {}", file, e);
+            return Optional.empty();
+        }
     }
 }

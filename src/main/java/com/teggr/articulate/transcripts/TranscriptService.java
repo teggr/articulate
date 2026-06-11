@@ -2,6 +2,7 @@ package com.teggr.articulate.transcripts;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.teggr.articulate.youtube.YouTubeVideoIdExtractor;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -16,8 +17,16 @@ public class TranscriptService {
     private final TranscriptProvider transcriptProvider;
     private final TranscriptRepository transcriptRepository;
     private final TranscriptIdGenerator transcriptIdGenerator;
+    private final YouTubeVideoIdExtractor videoIdExtractor;
 
     public TranscriptResult fetchAndStore(String youtubeUrl) {
+        String videoId = videoIdExtractor.extract(youtubeUrl);
+        var existingTranscript = transcriptRepository.findByVideoId(videoId);
+        if (existingTranscript.isPresent()) {
+            log.info("Reusing cached transcript {} for video {}", existingTranscript.get().id(), videoId);
+            return existingTranscript.get();
+        }
+
         TranscriptResult fetchedTranscript = transcriptProvider.fetchTranscript(youtubeUrl);
         TranscriptResult storedTranscript = fetchedTranscript.stored(nextId(), Instant.now().toString());
         transcriptRepository.save(storedTranscript);
