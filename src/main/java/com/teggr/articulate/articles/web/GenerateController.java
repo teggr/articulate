@@ -31,9 +31,9 @@ public class GenerateController {
     private final YouTubeVideoIdExtractor videoIdExtractor;
 
     @GetMapping
-    public String index(Model model) {
+    public String index(@RequestParam(name = "url", required = false) String url, Model model) {
         if (!model.containsAttribute("youtubeUrl")) {
-            model.addAttribute("youtubeUrl", "");
+            model.addAttribute("youtubeUrl", normalize(url));
         }
         return "generateArticleView";
     }

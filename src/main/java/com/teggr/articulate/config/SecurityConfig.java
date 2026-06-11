@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.web.savedrequest.HttpSessionRequestCache;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
@@ -13,6 +14,9 @@ public class SecurityConfig {
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        HttpSessionRequestCache requestCache = new HttpSessionRequestCache();
+        requestCache.setMatchingRequestParameterName(null);
+
         http
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.GET, "/").permitAll()
@@ -20,6 +24,7 @@ public class SecurityConfig {
                         .requestMatchers("/generate/**").authenticated()
                 .requestMatchers("/articles/**").authenticated()
                         .anyRequest().authenticated())
+                .requestCache(cache -> cache.requestCache(requestCache))
                 .formLogin(form -> form.defaultSuccessUrl("/articles"))
                 .logout(logout -> logout.logoutSuccessUrl("/"));
 

@@ -42,6 +42,16 @@ class GenerateControllerTest {
                                 .andExpect(model().attributeExists("youtubeUrl"));
     }
 
+        @Test
+        void getGenerateWithUrlPrefillsYoutubeUrlField() throws Exception {
+                mockMvc.perform(get("/generate")
+                                                .with(user("test-user"))
+                                                .param("url", "https://youtube.com/watch?v=abc1234DEFG"))
+                                .andExpect(status().isOk())
+                                .andExpect(view().name("generateArticleView"))
+                                .andExpect(model().attribute("youtubeUrl", "https://youtube.com/watch?v=abc1234DEFG"));
+        }
+
     @Test
     void postBlankUrlReturnsValidationError() throws Exception {
         mockMvc.perform(post("/generate")
