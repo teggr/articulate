@@ -3,8 +3,8 @@ package com.teggr.articulate.youtube;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
+import com.teggr.articulate.service.transcripts.TranscriptResult;
 import com.teggr.articulate.youtube.SupadataTranscriptProvider;
-import com.teggr.articulate.youtube.TranscriptResult;
 import com.teggr.articulate.youtube.YouTubeVideoIdExtractor;
 
 import tools.jackson.databind.ObjectMapper;

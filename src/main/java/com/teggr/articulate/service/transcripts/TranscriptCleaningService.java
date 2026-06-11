@@ -1,4 +1,4 @@
-package com.teggr.articulate.service;
+package com.teggr.articulate.service.transcripts;
 
 import org.springframework.stereotype.Service;
 

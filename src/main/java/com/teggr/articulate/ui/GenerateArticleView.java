@@ -5,6 +5,7 @@ import j2html.tags.DomContent;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.stereotype.Component;
+import org.springframework.security.web.csrf.CsrfToken;
 
 import com.teggr.articulate.model.ArticleResponse;
 
@@ -12,6 +13,7 @@ import java.util.Map;
 
 import static dev.rebelcraft.j2html.htmx.HtmxAttributes.hxIndicator;
 import static dev.rebelcraft.j2html.htmx.HtmxAttributes.hxPost;
+import static dev.rebelcraft.j2html.htmx.HtmxAttributes.hxSelect;
 import static dev.rebelcraft.j2html.htmx.HtmxAttributes.hxSwap;
 import static dev.rebelcraft.j2html.htmx.HtmxAttributes.hxTarget;
 import static dev.rebelcraft.j2html.htmx.HtmxAttributes.innerHTML;
@@ -31,8 +33,8 @@ import static j2html.TagCreator.script;
 import static j2html.TagCreator.style;
 import static j2html.TagCreator.title;
 
-@Component("homeView")
-public class HomeView extends J2HtmlView {
+@Component
+public class GenerateArticleView extends J2HtmlView {
 
     @Override
     protected DomContent renderMergedOutputModelDomContent(Map<String, Object> model,
@@ -41,6 +43,7 @@ public class HomeView extends J2HtmlView {
         String youtubeUrl = (String) model.getOrDefault("youtubeUrl", "");
         ArticleResponse article = (ArticleResponse) model.get("article");
         String error = (String) model.get("error");
+                CsrfToken csrfToken = (CsrfToken) request.getAttribute(CsrfToken.class.getName());
 
         return html(
                 head(
@@ -66,8 +69,9 @@ public class HomeView extends J2HtmlView {
                                 p("Submit a YouTube URL to generate an article."),
                                 form().withMethod("post")
                                         .withAction("/generate")
-                                        .attr(hxPost("/generate/ui/articles"))
+                                        .attr(hxPost("/generate"))
                                         .attr(hxTarget("#article-result"))
+                                        .attr(hxSelect("#article-result"))
                                         .attr(hxSwap(innerHTML))
                                         .attr(hxIndicator("#loading-indicator"))
                                         .with(
@@ -78,6 +82,9 @@ public class HomeView extends J2HtmlView {
                                                         .withPlaceholder("https://www.youtube.com/watch?v=...")
                                                         .withValue(youtubeUrl)
                                                         .isRequired(),
+                                                input().withType("hidden")
+                                                        .withName(csrfToken != null ? csrfToken.getParameterName() : "_csrf")
+                                                        .withValue(csrfToken != null ? csrfToken.getToken() : ""),
                                                 button("Generate article").withType("submit"),
                                                 div("Generating...").withId("loading-indicator").withClass("htmx-indicator")
                                         ),

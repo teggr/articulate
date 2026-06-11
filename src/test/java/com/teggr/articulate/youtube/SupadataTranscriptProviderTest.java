@@ -3,8 +3,8 @@ package com.teggr.articulate.youtube;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
+import com.teggr.articulate.service.transcripts.TranscriptResult;
 import com.teggr.articulate.youtube.SupadataTranscriptProvider;
-import com.teggr.articulate.youtube.TranscriptResult;
 import com.teggr.articulate.youtube.YouTubeVideoIdExtractor;
 
 import org.junit.jupiter.api.Test;
@@ -48,6 +48,8 @@ class SupadataTranscriptProviderTest {
             assertEquals("https://www.youtube.com/watch?v=nfIcjkR4KZ8", extractQueryParam(sentQuery, "url"));
             assertEquals("native", extractQueryParam(sentQuery, "mode"));
             assertEquals("true", extractQueryParam(sentQuery, "text"));
+            assertEquals(null, result.id());
+            assertEquals(null, result.createdAt());
             assertEquals("nfIcjkR4KZ8", result.videoId());
             assertEquals("Example title", result.title());
             assertEquals("Example transcript", result.transcript());

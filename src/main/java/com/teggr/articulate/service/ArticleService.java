@@ -8,15 +8,16 @@ import com.teggr.articulate.ai.BlogGenerationService;
 import com.teggr.articulate.model.ArticleRequest;
 import com.teggr.articulate.model.ArticleResponse;
 import com.teggr.articulate.model.BlogContent;
-import com.teggr.articulate.youtube.TranscriptProvider;
-import com.teggr.articulate.youtube.TranscriptResult;
+import com.teggr.articulate.service.transcripts.TranscriptCleaningService;
+import com.teggr.articulate.service.transcripts.TranscriptResult;
+import com.teggr.articulate.service.transcripts.TranscriptService;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class ArticleService {
 
-    private final TranscriptProvider transcriptProvider;
+    private final TranscriptService transcriptService;
     private final TranscriptCleaningService transcriptCleaningService;
     private final BlogGenerationService blogGenerationService;
     private final MarkdownService markdownService;
@@ -24,7 +25,7 @@ public class ArticleService {
     public ArticleResponse generate(ArticleRequest request) {
         log.info("Generating article for URL: {}", request.youtubeUrl());
 
-        TranscriptResult transcriptResult = transcriptProvider.fetchTranscript(request.youtubeUrl());
+        TranscriptResult transcriptResult = transcriptService.fetchAndStore(request.youtubeUrl());
         log.info("Fetched transcript for \"{}\" ({} chars)",
                 transcriptResult.title(), transcriptResult.transcript().length());
 

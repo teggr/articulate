@@ -25,8 +25,8 @@ server:
 articulate:
   ai:
     # 0 disables capping. Set e.g. 12000 to test whether large prompts trigger provider 500s.
-    max-transcript-chars: 12000
-  transcript-cache:
+    max-transcript-chars: 0
+  data:
     dir: .data
 
 logging:

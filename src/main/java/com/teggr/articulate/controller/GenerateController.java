@@ -10,13 +10,11 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.teggr.articulate.exception.TranscriptNotFoundException;
 import com.teggr.articulate.model.ArticleRequest;
 import com.teggr.articulate.model.ArticleResponse;
 import com.teggr.articulate.service.ArticleService;
-import com.teggr.articulate.ui.UiRenderer;
 
 @Controller
 @RequestMapping("/generate")
@@ -34,7 +32,7 @@ public class GenerateController {
         if (!model.containsAttribute("youtubeUrl")) {
             model.addAttribute("youtubeUrl", "");
         }
-        return "homeView";
+        return "generateArticleView";
     }
 
     @PostMapping(consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
@@ -42,19 +40,7 @@ public class GenerateController {
         String normalizedUrl = normalize(youtubeUrl);
         model.addAttribute("youtubeUrl", normalizedUrl);
         applyGeneration(model, normalizedUrl);
-        return "homeView";
-    }
-
-    @PostMapping(value = "/ui/articles", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE, produces = MediaType.TEXT_HTML_VALUE)
-    @ResponseBody
-    public String generatePartial(@RequestParam(name = "youtubeUrl", required = false) String youtubeUrl) {
-        String normalizedUrl = normalize(youtubeUrl);
-        if (normalizedUrl.isBlank()) {
-            return UiRenderer.renderResultContent(null, EMPTY_URL_ERROR);
-        }
-
-        GenerationResult result = generateArticle(normalizedUrl);
-        return UiRenderer.renderResultContent(result.article(), result.error());
+        return "generateArticleView";
     }
 
     private void applyGeneration(Model model, String normalizedUrl) {
