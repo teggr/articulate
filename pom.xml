@@ -13,7 +13,7 @@
 
     <groupId>com.teggr</groupId>
     <artifactId>articulate</artifactId>
-    <version>0.0.11</version>
+    <version>0.0.12-SNAPSHOT</version>
     <name>articulate</name>
     <description>Convert YouTube videos into readable blog articles</description>
 
