@@ -72,7 +72,7 @@ public class GenerateArticleView extends J2HtmlView {
                                         button("Generate article").withType("submit"),
                                         div().withId("loading-indicator").withClass("htmx-indicator loading-indicator").with(
                                                 div().withClass("spinner"),
-                                                p("Generating your article… this may take a moment")
+                                                p("Generating your article... this may take a moment")
                                         )
                                 ),
                                                 UiRenderer.resultContainer(article, error, youtubeEmbedUrl)
