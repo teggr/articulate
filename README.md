@@ -2,6 +2,8 @@
 
 A service for converting YouTube videos into readable blog articles.
 
+![articulate form image](/docs/Articulate-form.png)
+
 ## How it works
 
 1. Paste a YouTube URL
@@ -9,6 +11,8 @@ A service for converting YouTube videos into readable blog articles.
 3. The transcript is cleaned (filler words, `[Music]` tags, etc. removed)
 4. A two-step AI pipeline (Gemini Flash via Spring AI) converts the transcript into a polished Markdown blog article
 5. The API returns the title, Markdown, and rendered HTML
+
+![articulate article](/docs/Articulate-article.png)
 
 ## Tech stack
 
