@@ -70,7 +70,10 @@ public class GenerateArticleView extends J2HtmlView {
                                                 .withName(csrfToken != null ? csrfToken.getParameterName() : "_csrf")
                                                 .withValue(csrfToken != null ? csrfToken.getToken() : ""),
                                         button("Generate article").withType("submit"),
-                                        div("Generating...").withId("loading-indicator").withClass("htmx-indicator")
+                                        div().withId("loading-indicator").withClass("htmx-indicator loading-indicator").with(
+                                                div().withClass("spinner"),
+                                                p("Generating your article... this may take a moment")
+                                        )
                                 ),
                                                 UiRenderer.resultContainer(article, error, youtubeEmbedUrl)
                 ),

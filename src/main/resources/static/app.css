@@ -248,8 +248,35 @@ pre {
   display: none;
 }
 
-.htmx-request .htmx-indicator {
-  display: inline;
+.htmx-request .htmx-indicator,
+.htmx-indicator.htmx-request {
+  display: flex;
+}
+
+.loading-indicator {
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  color: var(--muted);
+  text-align: center;
+}
+
+.loading-indicator p {
+  margin: 0;
+}
+
+.spinner {
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .generate-page #article-result {
