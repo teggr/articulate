@@ -43,9 +43,9 @@ public class LoginView extends J2HtmlView {
                                                 .withName(csrfToken.getParameterName())
                                                 .withValue(csrfToken.getToken()),
                                         label("Username").attr("for", "username"),
-                                        input().withId("username").withName("username").withType("text").withRequired(true),
+                                        input().withId("username").withName("username").withType("text").withCondRequired(true),
                                         label("Password").attr("for", "password"),
-                                        input().withId("password").withName("password").withType("password").withRequired(true),
+                                        input().withId("password").withName("password").withType("password").withCondRequired(true),
                                         label().withClass("remember-me").with(
                                                 input().withType("checkbox").withName("remember-me"),
                                                 span("Remember me")
