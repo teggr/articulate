@@ -20,7 +20,8 @@ public class ShareController {
     public String show(@PathVariable String articleId, Model model, HttpServletRequest request) {
         var article = articleService.findById(articleId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Article not found"));
-        model.addAttribute("article", articleService.findResponseById(articleId).orElseThrow());
+        model.addAttribute("article", articleService.findResponseById(articleId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Article not found")));
         model.addAttribute("articleId", article.id());
         model.addAttribute("createdAt", article.createdAt());
         model.addAttribute("sourceUrl", articleService.findSourceUrlByTranscriptId(article.transcriptId()).orElse(""));
