@@ -14,9 +14,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static org.hamcrest.Matchers.hasProperty;
-import static org.hamcrest.Matchers.isEmptyOrNullString;
-import static org.hamcrest.Matchers.not;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -76,10 +73,7 @@ class ArticlesControllerTest {
             .andExpect(model().attribute("sourceUrl", "https://www.youtube.com/watch?v=abc123"))
             .andExpect(model().attribute("youtubeEmbedUrl", "https://www.youtube-nocookie.com/embed/abc123"))
             .andExpect(model().attribute("shareUrl", "http://localhost/share/a2"))
-            .andExpect(model().attribute("publicShareView", false))
-            .andExpect(model().attributeExists("article"))
-            .andExpect(model().attribute("article", hasProperty("title", not(isEmptyOrNullString()))))
-            .andExpect(model().attribute("sourceUrl", not(isEmptyOrNullString())));
+            .andExpect(model().attribute("publicShareView", false));
     }
 
     @Test
@@ -96,9 +90,8 @@ class ArticlesControllerTest {
         mockMvc.perform(get("/articles/a2").with(user("test-user")))
                 .andExpect(status().isOk())
                 .andExpect(view().name("articleDetailView"))
-                .andExpect(model().attributeExists("article"))
-                .andExpect(model().attribute("article", hasProperty("title", not(isEmptyOrNullString()))))
-                .andExpect(model().attribute("sourceUrl", not(isEmptyOrNullString())));
+                .andExpect(model().attribute("article", response))
+                .andExpect(model().attribute("sourceUrl", "https://example.com/source"));
     }
 
     @Test
