@@ -10,11 +10,15 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.teggr.articulate.articles.ArticleService;
 import com.teggr.articulate.articles.web.ArticlesController;
 import com.teggr.articulate.articles.web.GenerateController;
+import com.teggr.articulate.articles.web.ShareController;
 import com.teggr.articulate.web.LandingController;
 import com.teggr.articulate.web.LoginController;
 import com.teggr.articulate.web.views.LoginView;
 import com.teggr.articulate.youtube.YouTubeVideoIdExtractor;
 
+import java.util.Optional;
+
+import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -27,7 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
-@WebMvcTest({LandingController.class, LoginController.class, GenerateController.class, ArticlesController.class})
+@WebMvcTest({LandingController.class, LoginController.class, GenerateController.class, ArticlesController.class, ShareController.class})
 @Import({SecurityConfig.class, LoginView.class})
 class SecurityIntegrationTest {
 
@@ -95,6 +99,14 @@ class SecurityIntegrationTest {
         mockMvc.perform(get("/articles"))
                 .andExpect(status().isFound())
                 .andExpect(header().string("Location", org.hamcrest.Matchers.containsString("/login")));
+    }
+
+    @Test
+    void sharePageIsPublic() throws Exception {
+        when(articleService.findById("missing")).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/share/missing"))
+                .andExpect(status().isNotFound());
     }
 
     @Test

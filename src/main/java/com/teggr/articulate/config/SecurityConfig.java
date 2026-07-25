@@ -52,6 +52,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.GET, "/").permitAll()
                 .requestMatchers(HttpMethod.GET, "/app.css", "/favicon.ico", "/**/*.css", "/**/*.js").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/share/**").permitAll()
                         .requestMatchers("/generate/**").authenticated()
                 .requestMatchers("/articles/**").authenticated()
                         .anyRequest().authenticated())

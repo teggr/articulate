@@ -46,7 +46,11 @@ class ArticlesControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(view().name("articlesView"))
             .andExpect(model().attribute("articles", articles))
-            .andExpect(model().attribute("sourceUrls", Map.of("a2", "https://www.youtube.com/watch?v=abc123")));
+            .andExpect(model().attribute("sourceUrls", Map.of("a2", "https://www.youtube.com/watch?v=abc123")))
+            .andExpect(model().attribute("shareUrls", Map.of(
+                    "a2", "http://localhost/share/a2",
+                    "a1", "http://localhost/share/a1"
+            )));
     }
 
     @Test
@@ -67,7 +71,9 @@ class ArticlesControllerTest {
                 .andExpect(model().attribute("articleId", "a2"))
             .andExpect(model().attribute("createdAt", "2026-06-11T10:00:00Z"))
             .andExpect(model().attribute("sourceUrl", "https://www.youtube.com/watch?v=abc123"))
-            .andExpect(model().attribute("youtubeEmbedUrl", "https://www.youtube-nocookie.com/embed/abc123"));
+            .andExpect(model().attribute("youtubeEmbedUrl", "https://www.youtube-nocookie.com/embed/abc123"))
+            .andExpect(model().attribute("shareUrl", "http://localhost/share/a2"))
+            .andExpect(model().attribute("publicShareView", false));
     }
 
     @Test
