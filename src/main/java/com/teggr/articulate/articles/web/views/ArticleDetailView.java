@@ -48,6 +48,8 @@ public class ArticleDetailView extends J2HtmlView {
                                 .attr("rel", "noopener noreferrer")
                 );
 
+        DomContent sourceOutsideVideo = youtubeEmbedUrl.isBlank() ? sourceMeta : text("");
+
         DomContent videoSection = youtubeEmbedUrl.isBlank()
                 ? text("")
                 : div().withClass("section").with(
@@ -59,7 +61,8 @@ public class ArticleDetailView extends J2HtmlView {
                                         .withSrc(youtubeEmbedUrl)
                                         .attr("allow", "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share")
                                         .attr("allowfullscreen", "allowfullscreen")
-                        )
+                        ),
+                        sourceMeta
                 );
 
         DomContent shareSection = shareUrl.isBlank()
@@ -93,7 +96,7 @@ public class ArticleDetailView extends J2HtmlView {
                                 time(createdAt).attr("datetime", createdAt)
                         ),
                         shareSection,
-                        sourceMeta,
+                        sourceOutsideVideo,
                         videoSection,
                         div().withClass("section").with(
                                 h2("Rendered output"),
