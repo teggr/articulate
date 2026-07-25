@@ -211,6 +211,18 @@ form,
   color: var(--muted);
 }
 
+.share-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: var(--space-2);
+}
+
+.share-actions button {
+  padding: 0.4rem 0.8rem;
+  cursor: pointer;
+}
+
 pre {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
