@@ -60,7 +60,7 @@ jobs:
         run: mvn -B docker:push --file pom.xml
 
       - name: Setup JBang
-        uses: jbangdev/setup-jbang@main
+        uses: jbangdev/setup-jbang@2b1b465a7b75f4222b81426f23a01e013aa7b95c
 
       - name: Write private key to file
         env:
